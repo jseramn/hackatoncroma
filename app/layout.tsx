@@ -16,12 +16,20 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Croma Chat Template",
   description:
-    "Production-ready AI chat over the Croma MCP — judicial, tax, and registry data from Colombia, Peru, and Mexico, streamed live with the Vercel AI SDK.",
+    "Production-ready AI chat over the Croma MCP: judicial, tax, and registry data from Colombia, Peru, and Mexico, streamed live with the Vercel AI SDK.",
   openGraph: {
     title: "Croma Chat Template",
     description:
       "AI chat over live Latin American public data. One-click deploy on Vercel.",
     siteName: "Croma Chat Template",
+    images: [{ url: "/og.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Croma Chat Template",
+    description:
+      "AI chat over live Latin American public data. One-click deploy on Vercel.",
+    images: ["/og-twitter.png"],
   },
 };
 
