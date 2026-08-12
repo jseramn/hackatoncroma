@@ -107,3 +107,7 @@ If the MCP server is unreachable, the chat degrades gracefully: the model still 
 - [Croma docs](https://docs.usecroma.com): every endpoint, with schemas
 - [Croma MCP](https://platform.usecroma.com/mcp): connect the same server to Claude, ChatGPT, or Cursor
 - [AI SDK docs](https://ai-sdk.dev/docs) · [AI Elements](https://ai-sdk.dev/elements)
+
+## License
+
+[MIT](LICENSE)
