@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="public/croma_brand_white.svg">
+  <img alt="Croma" src="public/croma_brand_black.svg" height="26">
+</picture>
 
-First, run the development server:
+# Croma Chat Template
+
+**A production-ready AI chat over live Latin American public data.**
+
+Streaming chat built with the [Vercel AI SDK](https://ai-sdk.dev) and [AI Elements](https://ai-sdk.dev/elements), connected to the [Croma MCP server](https://platform.usecroma.com/mcp) — judicial, tax, and registry sources from Colombia, Peru, and Mexico, queried in real time.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?project-name=croma-chat-template&repository-name=croma-chat-template&repository-url=https%3A%2F%2Fgithub.com%2Fcroma-ai%2Fcroma-chat-template&env=CROMA_API_KEY,GROQ_API_KEY&envDescription=CROMA_API_KEY+powers+the+live-data+tools+%28free+to+get%29.+GROQ_API_KEY+runs+the+model+%E2%80%94+or+set+ANTHROPIC_API_KEY+after+deploy+to+use+Claude.&envLink=https%3A%2F%2Fplatform.usecroma.com%2Fsign-up)
+&nbsp;
+[![Get your Croma API key](public/croma-api-key-badge.svg)](https://platform.usecroma.com/sign-up)
+
+</div>
+
+---
+
+## What's inside
+
+- **Live MCP tools** — every request opens a client against `https://api.croma.run/mcp` and exposes the full Croma tool set to the model: Rama Judicial, SUNAT, RUES, SECOP, DOF, SCJN, SIATA, and 40+ more sources.
+- **Streaming everything** — text, reasoning, and tool calls stream token-by-token via AI SDK v7's UI message stream.
+- **World-class chat UI** — [AI Elements](https://ai-sdk.dev/elements) components on a swiss, ruled-sheet design system: hairline grid rails, mono eyebrow labels, square surfaces, inverted selection, conversation with stick-to-bottom scrolling, markdown responses (Streamdown), collapsible tool cards with friendly source labels, reasoning disclosure, stop/regenerate, dark mode.
+- **Optional tool pinning** — a docs-style picker in the composer (country → category → source, searchable) pins one or more MCP tools. The selection applies per message: add, switch, or clear sources mid-conversation and the next question uses the new scope. The catalog is fetched live from the server and cached.
+- **Claude-first model resolution** — runs on `claude-opus-5` when `ANTHROPIC_API_KEY` is set, and falls back to Groq's `openai/gpt-oss-120b` otherwise. Swap models in one file.
+- **Honest data handling** — results are truncated before they blow up context, tool failures return a generic message (details stay in server logs), and Croma's async "pending job" lookups are automatically re-polled.
+
+## One-click deploy
+
+1. Click **Deploy with Vercel** above.
+2. Grab a free API key with the **Get your Croma API key** button (sign-up takes a minute).
+3. Paste your `CROMA_API_KEY` and `GROQ_API_KEY` (from [console.groq.com](https://console.groq.com/keys)) when Vercel asks for env vars.
+4. Done — your chat is live.
+
+Prefer Claude? Add `ANTHROPIC_API_KEY` in your Vercel project settings and the template switches to `claude-opus-5` automatically on the next deploy.
+
+## Running locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/croma-ai/croma-chat-template
+cd croma-chat-template
+bun install          # or: pnpm install / npm install
+
+cp .env.example .env.local
+# fill in CROMA_API_KEY and GROQ_API_KEY (or ANTHROPIC_API_KEY)
+
+bun dev              # or: pnpm dev / npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and try one of the suggestion chips — *"Consulta el RUC 20100047218 en SUNAT"* runs a real lookup against the Peruvian tax authority.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable            | Required | Description                                                                                          |
+| ------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
+| `CROMA_API_KEY`     | ✅       | Authenticates the MCP tools. [Get one free →](https://platform.usecroma.com/sign-up)                 |
+| `GROQ_API_KEY`      | ✅\*     | Runs `openai/gpt-oss-120b` on [Groq](https://console.groq.com/keys).                                 |
+| `ANTHROPIC_API_KEY` | ✅\*     | Runs `claude-opus-5`. Takes precedence over Groq when both are set.                                  |
+| `CROMA_MCP_URL`     | —        | MCP endpoint override. Defaults to `https://api.croma.run/mcp`.                                      |
 
-## Learn More
+\* One model key is required — Anthropic **or** Groq.
 
-To learn more about Next.js, take a look at the following resources:
+## How it works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/api/chat/route.ts        streamText + system prompt + UI message stream (+ optional pinned tools)
+app/api/tools/route.ts       Tool catalog for the picker (MCP listTools, cached in-memory)
+components/chat/chat.tsx     Chat orchestrator (useChat, composer, transcript)
+components/chat/…            Header, empty state, message parts, tool picker
+lib/croma-tools.ts           MCP client: discovery, auth, result truncation, error shielding
+lib/model.ts                 Model resolution (Claude first, Groq fallback)
+lib/sources.ts               Source taxonomy (country → category → source, mirrors the docs)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Each `POST /api/chat`:
 
-## Deploy on Vercel
+1. Opens a fresh MCP client over streamable HTTP with `Authorization: Bearer $CROMA_API_KEY`.
+2. Discovers the server's tools and hands them to `streamText` (`stopWhen: stepCountIs(8)` allows multi-step tool use — including re-polling Croma's async jobs).
+3. Streams UI message chunks (text, reasoning, tool input/output) back to the client and closes the MCP client when the stream ends, aborts, or errors.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+If the MCP server is unreachable, the chat degrades gracefully — the model still answers, just without live-data tools.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Customization
+
+- **Model** — edit `lib/model.ts`. Any [AI SDK provider](https://ai-sdk.dev/providers/ai-sdk-providers) works.
+- **System prompt** — `instructions()` in `app/api/chat/route.ts`. Coverage list, tone, language, and the pending-job retry policy live here.
+- **Suggestions & source taxonomy** — `SUGGESTIONS` and the country/category maps in `lib/sources.ts`.
+- **Look & feel** — design tokens in `app/globals.css` (`--line` hairlines, `--agent` accent, square radius; shadcn/Tailwind v4); components in `components/chat/` and `components/ai-elements/`.
+
+## Production notes
+
+- `maxDuration = 60` on the chat route covers multi-step tool chains on Vercel.
+- Requests are capped at 24 messages / 4,000 chars per message before they reach the model.
+- For a public deployment, consider adding rate limiting ([Upstash](https://upstash.com)) and bot protection ([Vercel BotID](https://vercel.com/docs/botid)) on `/api/chat`.
+
+## Learn more
+
+- [Croma docs](https://docs.usecroma.com) — every endpoint, with schemas
+- [Croma MCP](https://platform.usecroma.com/mcp) — connect the same server to Claude, ChatGPT, or Cursor
+- [AI SDK docs](https://ai-sdk.dev/docs) · [AI Elements](https://ai-sdk.dev/elements)
