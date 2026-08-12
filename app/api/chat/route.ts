@@ -6,6 +6,7 @@ import {
 } from "ai";
 import { CROMA_MCP_URL, createCromaToolbox } from "@/lib/croma-tools";
 import { resolveModel } from "@/lib/model";
+import { clientIp, ratelimit } from "@/lib/ratelimit";
 
 // E2E sample chat over Croma's public MCP server: every turn connects to the
 // real MCP endpoint, exposes its full tool set to the model, and streams tool
@@ -42,6 +43,25 @@ Reglas:
 }
 
 export async function POST(req: Request) {
+  if (ratelimit) {
+    const { success, limit, remaining, reset } = await ratelimit.limit(
+      clientIp(req),
+    );
+    if (!success) {
+      return Response.json(
+        { error: "rate_limited" },
+        {
+          status: 429,
+          headers: {
+            "X-RateLimit-Limit": limit.toString(),
+            "X-RateLimit-Remaining": remaining.toString(),
+            "X-RateLimit-Reset": reset.toString(),
+          },
+        },
+      );
+    }
+  }
+
   const resolved = resolveModel();
   if (!resolved) {
     return Response.json({ error: "no_model_configured" }, { status: 503 });
