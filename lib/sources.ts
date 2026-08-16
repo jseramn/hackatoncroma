@@ -96,10 +96,10 @@ export function categoryOf(toolName: string): string {
 }
 
 export const SUGGESTIONS = [
-  "¿Qué publicó hoy el DOF en México?",
-  "Consulta el RUC 20100047218 en SUNAT",
+  "Consulta la cédula 1127938850 en fuentes de Colombia",
+  "Antecedentes y Rama Judicial para la CC 1127938850",
   "Busca a Ecopetrol en el registro mercantil (RUES)",
   "¿Cómo está el clima ahora en el Valle de Aburrá?",
-  "Jurisprudencia de la SCJN sobre pensión alimenticia",
-  "Boletines recientes de la Fiscalía de Jalisco",
+  "Consulta el RUC 20100047218 en SUNAT",
+  "¿Qué publicó hoy el DOF en México?",
 ];
