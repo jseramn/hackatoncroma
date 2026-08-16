@@ -45,16 +45,16 @@ export function EmptyState({ onSuggestion }: EmptyStateProps) {
     <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
       <SymbolFrame />
       <div className="space-y-3">
-        <p className="eyebrow">Croma MCP — Datos en vivo</p>
+        <p className="eyebrow">Mallanet × Croma — preview hackathon</p>
         <h1 className="text-balance text-3xl font-semibold tracking-[-0.04em] md:text-4xl">
-          Datos públicos de LatAm,
+          Verifica una cédula
           <br />
-          consultados en tiempo real.
+          contra datos oficiales.
         </h1>
         <p className="mx-auto max-w-md text-balance text-sm leading-relaxed text-muted-foreground">
-          Fuentes judiciales, tributarias y registrales de Colombia, Perú y
-          México — detrás del mismo servidor MCP que puedes conectar a Claude,
-          ChatGPT o Cursor.
+          Usa de muestra la CC 1127938850. Fuentes judiciales, de
+          antecedentes y registrales de Colombia — el mismo MCP de Croma,
+          listo para Claude, ChatGPT o Cursor.
         </p>
       </div>
       <div className="flex max-w-xl flex-wrap items-center justify-center gap-2">
