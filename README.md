@@ -111,3 +111,15 @@ If the MCP server is unreachable, the chat degrades gracefully: the model still 
 ## License
 
 [MIT](LICENSE)
+
+
+---
+
+## Mallanet hackathon preview
+
+Public fork used for the Croma hackathon demo.
+
+- Live target: https://hackatoncroma.jseramn.tech
+- Sample document (cédula): **1127938850**
+- First suggestion chip runs a Colombia lookup on that CC.
+
