@@ -9,7 +9,7 @@
 
 **A production-ready AI chat over live Latin American public data.**
 
-Streaming chat built with the [Vercel AI SDK](https://ai-sdk.dev) and [AI Elements](https://ai-sdk.dev/elements), connected to the [Croma MCP server](https://platform.usecroma.com/mcp): judicial, tax, and registry sources from Colombia, Peru, and Mexico, queried in real time.
+Streaming chat built with the [Vercel AI SDK](https://ai-sdk.dev) and [AI Elements](https://ai-sdk.dev/elements). This fork is the public demo of [Mallanet Verify](https://github.com/jseramn/mallanet-verify): the chat hosts that MCP (Neon schema `verify`) plus the [Croma MCP server](https://platform.usecroma.com/mcp).
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?project-name=croma-chat-template&repository-name=croma-chat-template&repository-url=https%3A%2F%2Fgithub.com%2Fcroma-ai%2Fcroma-chat-template&env=CROMA_API_KEY,GROQ_API_KEY&envDescription=CROMA_API_KEY+powers+the+live-data+tools+%28free+to+get%29.+GROQ_API_KEY+runs+the+model%2C+or+set+ANTHROPIC_API_KEY+after+deploy+to+use+Claude.&envLink=https%3A%2F%2Fplatform.usecroma.com%2Fsign-up)
 &nbsp;
@@ -21,7 +21,7 @@ Streaming chat built with the [Vercel AI SDK](https://ai-sdk.dev) and [AI Elemen
 
 ## What's inside
 
-- **Live MCP tools**: every request opens a client against `https://api.croma.run/mcp` and exposes the full Croma tool set to the model: Rama Judicial, SUNAT, RUES, SECOP, DOF, SCJN, SIATA, and 40+ more sources.
+- **Two MCP layers**: Mallanet Verify (`list_pending_volunteers`, `verify_volunteer`, …) persists Pass/Alert/Fail reports in Neon schema `verify` (or an in-memory seed). Croma MCP stays available for raw live lookups (Rama Judicial, RUES, SUNAT, DOF, and 40+ more).
 - **Streaming everything**: text, reasoning, and tool calls stream token-by-token via AI SDK v7's UI message stream.
 - **World-class chat UI**: [AI Elements](https://ai-sdk.dev/elements) components on a swiss, ruled-sheet design system: hairline grid rails, mono eyebrow labels, square surfaces, inverted selection, conversation with stick-to-bottom scrolling, markdown responses (Streamdown), collapsible tool cards with friendly source labels, reasoning disclosure, stop/regenerate, dark mode.
 - **Optional tool pinning**: a docs-style picker in the composer (country → category → source, searchable) pins one or more MCP tools. The selection applies per message: add, switch, or clear sources mid-conversation and the next question uses the new scope. The catalog is fetched live from the server and cached.
@@ -46,18 +46,20 @@ cd croma-chat-template
 bun install          # or: pnpm install / npm install
 
 cp .env.example .env.local
-# fill in CROMA_API_KEY and GLM_API_KEY (or ANTHROPIC_API_KEY / GROQ_API_KEY)
+# fill in CROMA_API_KEY and a model key (GLM_API_KEY, ANTHROPIC_API_KEY, or GROQ_API_KEY)
+# optional: DATABASE_URL for Neon persistencia (schema verify)
 
 bun dev              # or: pnpm dev / npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and try one of the suggestion chips: *"Consulta el RUC 20100047218 en SUNAT"* runs a real lookup against the Peruvian tax authority.
+Open [http://localhost:3000](http://localhost:3000) and try the Mallanet chips: list pending volunteers, bind CC `1127938850`, then `verify_volunteer`.
 
 ## Environment variables
 
 | Variable                   | Required | Description                                                                                |
 | -------------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| `CROMA_API_KEY`            | ✅       | Authenticates the MCP tools. [Get one free →](https://platform.usecroma.com/sign-up)       |
+| `CROMA_API_KEY`            | ✅       | Authenticates Croma MCP and Verify's Croma REST calls. [Get one free →](https://platform.usecroma.com/sign-up) |
+| `DATABASE_URL`             | optional | Neon/Postgres URL with DML on schema `verify` only. If omitted, Verify uses the in-memory seed `verify-operator-001`. |
 | `GLM_API_KEY`              | ✅\*     | Z.AI [GLM Coding Plan](https://docs.z.ai/devpack/quick-start). Uses coding endpoint `https://api.z.ai/api/coding/paas/v4` (not general `/api/paas/v4`). Default model `glm-4.5`. |
 | `ZAI_API_KEY`              | ✅\*     | Alias for `GLM_API_KEY`.                                                                   |
 | `GLM_BASE_URL`             | optional | Override GLM OpenAI-compatible base URL (default: coding paas v4 above).                   |
@@ -73,23 +75,26 @@ Open [http://localhost:3000](http://localhost:3000) and try one of the suggestio
 ## How it works
 
 ```
-app/api/chat/route.ts        streamText + system prompt + UI message stream (+ optional pinned tools)
-app/api/tools/route.ts       Tool catalog for the picker (MCP listTools, cached in-memory)
+app/api/chat/route.ts        streamText + Verify + Croma toolboxes (+ optional pinned tools)
+app/api/tools/route.ts       Merged catalog (Verify + Croma listTools, cached)
 components/chat/chat.tsx     Chat orchestrator (useChat, composer, transcript)
 components/chat/…            Header, empty state, message parts, tool picker
-lib/croma-tools.ts           MCP client: discovery, auth, result truncation, error shielding
+lib/croma-tools.ts           Croma MCP HTTP client
+lib/verify-mcp.ts            Verify stdio MCP (when DATABASE_URL is set) or in-process fallback
+lib/verify-runtime.ts        Same Verify handlers as the MCP, memory/Neon store
 lib/model.ts                 Model resolution (GLM Coding Plan → Claude → Groq)
 lib/ratelimit.ts             Optional Upstash rate limiter (active when env vars are set)
-lib/sources.ts               Source taxonomy (country → category → source, mirrors the docs)
+lib/sources.ts               Source taxonomy (Mallanet + country → category → source)
 ```
 
 Each `POST /api/chat`:
 
-1. Opens a fresh MCP client over streamable HTTP with `Authorization: Bearer $CROMA_API_KEY`.
-2. Discovers the server's tools and hands them to `streamText` (`stopWhen: stepCountIs(8)` allows multi-step tool use, including re-polling Croma's async jobs).
-3. Streams UI message chunks (text, reasoning, tool input/output) back to the client and closes the MCP client when the stream ends, aborts, or errors.
+1. Opens Croma MCP over streamable HTTP (`Authorization: Bearer $CROMA_API_KEY`) when the key is set.
+2. Opens Mallanet Verify: stdio MCP if `DATABASE_URL` + `CROMA_API_KEY` are set, otherwise the same seven handlers in-process (Neon when `DATABASE_URL` is set, memory seed otherwise).
+3. Merges both tool sets into `streamText` (`stopWhen: stepCountIs(12)`).
+4. Streams UI message chunks and closes both clients when the stream ends, aborts, or errors.
 
-If the MCP server is unreachable, the chat degrades gracefully: the model still answers, just without live-data tools.
+If one MCP is unreachable, the other still runs. Without a model key the route returns `no_model_configured`.
 
 ## Customization
 
@@ -101,7 +106,7 @@ If the MCP server is unreachable, the chat degrades gracefully: the model still 
 
 ## Production notes
 
-- `maxDuration = 60` on the chat route covers multi-step tool chains on Vercel.
+- `maxDuration = 120` on the chat route covers Verify's Policía poll (~55s) plus Croma tool chains.
 - Requests are capped at 24 messages / 4,000 chars per message before they reach the model.
 - Rate limiting ships built in: set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` and `/api/chat` returns 429 (with `X-RateLimit-*` headers) past 10 requests per minute per IP, on a sliding window.
 - For a public deployment, consider adding bot protection ([Vercel BotID](https://vercel.com/docs/botid)) on `/api/chat`.
@@ -124,6 +129,7 @@ If the MCP server is unreachable, the chat degrades gracefully: the model still 
 Public fork used for the Croma hackathon demo.
 
 - Live target: https://hackatoncroma.jseramn.tech
-- Sample document (cédula): **1127938850**
-- First suggestion chip runs a Colombia lookup on that CC.
+- Sample document (cédula): **1127938850** (bound at runtime onto `verify-operator-001`; not stored in the Verify seed)
+- Suggestion chips: list pending → bind sample CC → `verify_volunteer` → raw Croma lookup
+- Neon: set `DATABASE_URL` after applying `sql/001_verify_schema.sql` from [mallanet-verify](https://github.com/jseramn/mallanet-verify). Without it, the demo still runs in memory.
 

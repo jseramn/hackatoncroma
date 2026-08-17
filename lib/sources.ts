@@ -2,14 +2,58 @@
 // (country → category → source). Tool names arrive as e.g.
 // `rama_judicial_cases_by_radicado`; the first segment identifies the source.
 
-export type Country = "Colombia" | "Perú" | "México" | "Global";
+export type Country = "Mallanet" | "Colombia" | "Perú" | "México" | "Global";
 
-export const COUNTRIES: Country[] = ["Colombia", "Perú", "México", "Global"];
+export const COUNTRIES: Country[] = [
+  "Mallanet",
+  "Colombia",
+  "Perú",
+  "México",
+  "Global",
+];
 
 type SourceMeta = {
   label: string;
   country: Country;
   category: string;
+};
+
+const VERIFY_SOURCES: Record<string, SourceMeta> = {
+  list_pending_volunteers: {
+    label: "Neon verify",
+    country: "Mallanet",
+    category: "Voluntarios",
+  },
+  get_volunteer: {
+    label: "Neon verify",
+    country: "Mallanet",
+    category: "Voluntarios",
+  },
+  request_verification_data: {
+    label: "Neon verify",
+    country: "Mallanet",
+    category: "Voluntarios",
+  },
+  verify_volunteer: {
+    label: "Verify",
+    country: "Mallanet",
+    category: "Orquestador",
+  },
+  generate_report: {
+    label: "Verify",
+    country: "Mallanet",
+    category: "Orquestador",
+  },
+  check_croma_background: {
+    label: "Croma (verify)",
+    country: "Mallanet",
+    category: "Fuentes",
+  },
+  validate_linkedin: {
+    label: "LinkedIn",
+    country: "Mallanet",
+    category: "Fuentes",
+  },
 };
 
 const SOURCES: Record<string, SourceMeta> = {
@@ -73,7 +117,7 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
 };
 
 export function sourceOf(toolName: string): SourceMeta | undefined {
-  return SOURCES[toolName.split("_")[0] ?? ""];
+  return VERIFY_SOURCES[toolName] ?? SOURCES[toolName.split("_")[0] ?? ""];
 }
 
 export function sourceLabel(toolName: string): string | undefined {
@@ -96,10 +140,8 @@ export function categoryOf(toolName: string): string {
 }
 
 export const SUGGESTIONS = [
+  "Lista los voluntarios pendientes en Neon (schema verify)",
+  "Vincula la CC de muestra 1127938850 al operador verify-operator-001",
+  "Verifica verify-operator-001 y dame el reporte Pass/Alert/Fail",
   "Consulta la cédula 1127938850 en fuentes de Colombia",
-  "Antecedentes y Rama Judicial para la CC 1127938850",
-  "Busca a Ecopetrol en el registro mercantil (RUES)",
-  "¿Cómo está el clima ahora en el Valle de Aburrá?",
-  "Consulta el RUC 20100047218 en SUNAT",
-  "¿Qué publicó hoy el DOF en México?",
 ];

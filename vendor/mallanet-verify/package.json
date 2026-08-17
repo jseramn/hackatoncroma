@@ -1,0 +1,33 @@
+{
+  "name": "mallanet-verify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "mallanet-verify": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/server.ts",
+    "./server": "./src/server.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:db": "vitest run src/db"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "postgres": "^3.4.9",
+    "tsx": "^4.23.12",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.10"
+  }
+}

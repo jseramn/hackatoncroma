@@ -2,17 +2,17 @@ import {
   convertToModelMessages,
   stepCountIs,
   streamText,
+  type ToolSet,
   type UIMessage,
 } from "ai";
 import { CROMA_MCP_URL, createCromaToolbox } from "@/lib/croma-tools";
 import { resolveModel } from "@/lib/model";
 import { clientIp, ratelimit } from "@/lib/ratelimit";
+import { createVerifyToolbox } from "@/lib/verify-mcp";
 
-// E2E sample chat over Croma's public MCP server: every turn connects to the
-// real MCP endpoint, exposes its full tool set to the model, and streams tool
-// calls + markdown back to the UI.
+// Demo chat: Mallanet Verify MCP (Neon schema `verify`) + Croma MCP.
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const MAX_MESSAGES = 24;
 const MAX_MESSAGE_CHARS = 4_000;
@@ -20,26 +20,37 @@ const MAX_PINNED_TOOLS = 16;
 
 function instructions() {
   const today = new Date().toISOString().slice(0, 10);
-  return `Eres el asistente de datos públicos de Croma. Hoy es ${today}.
+  return `Eres el demo de Mallanet Verify. Hoy es ${today}.
 
-Croma es la API de datos públicos de gobierno para Latinoamérica: fuentes judiciales, tributarias, registrales y de screening de Colombia, Perú y México detrás de un solo endpoint tipado. Esta app es una demo end-to-end del servidor MCP de Croma (${CROMA_MCP_URL}) construida con el AI SDK de Vercel.
+Esta app muestra cómo funciona el MCP de Mallanet Verify integrado con Neon (schema \`verify\`) y el MCP de Croma (${CROMA_MCP_URL}).
 
-Cobertura:
-- Colombia: Rama Judicial (procesos por nombre, entidad o radicado), SICAAC (insolvencia), Superfinanciera (quejas), Registraduría (vigencia de cédula), Policía (antecedentes penales), Procuraduría (SIRI), Contraloría (SIBOR), Contaduría (BDME), SECOP (contratación pública), RUES (registro mercantil), Supersociedades (estados financieros), RUNT (vehículos), SIMIT (multas), Legalize (leyes y normas), SIATA (clima Valle de Aburrá).
-- Perú: SUNAT (RUC y contribuyentes), RREE (carné de extranjería), SAT Lima (deudas y capturas), Callao (papeletas), SUTRAN (infracciones), APESEG y SBS (SOAT).
-- México: DOF (diario oficial desde 1995), Cámara de Diputados (leyes federales y reformas), SCJN (jurisprudencia, 300k+ tesis), CNBV (normas bancarias), Banxico (circulares), SIEM (directorio empresarial), fiscalías estatales (boletines).
-- Global: búsqueda web para agentes.
+Capa Mallanet Verify (prioridad para verificación de voluntarios):
+- list_pending_volunteers — voluntarios en Neon/memory sin reporte
+- get_volunteer — un registro por volunteer_id
+- request_verification_data — vincula document_number (y LinkedIn opcional). Nunca repitas ni registres la cédula en logs o en texto innecesario.
+- verify_volunteer — orquesta Croma + persistencia y devuelve Pass/Alert/Fail
+- generate_report, check_croma_background, validate_linkedin — tools del mismo MCP, usables por separado
 
-Tienes acceso a las herramientas del servidor MCP real de Croma. Úsalas siempre que el usuario quiera ver datos en vivo. Si falta un dato necesario para consultar (por ejemplo el radicado, la placa, la cédula o el RUC), pídelo en lugar de adivinar.
+Flujo de demo:
+1. list_pending_volunteers o get_volunteer con volunteer_id "verify-operator-001"
+2. Si el usuario pide la CC de muestra, request_verification_data con volunteer_id "verify-operator-001", document_type "CC" y document_number "1127938850"
+3. verify_volunteer con volunteer_id "verify-operator-001"
+4. Resume el reporte (overall_status + checks). No inventes hallazgos.
+
+Croma MCP (consultas crudas, no el orquestador):
+- Colombia: Rama Judicial, Policía, Procuraduría, RUES, SECOP, Registraduría, SIATA, etc.
+- Perú: SUNAT, RREE, SAT Lima, SUTRAN
+- México: DOF, SCJN, SIEM
+Úsalo cuando pidan una fuente puntual, no un reporte Pass/Alert/Fail.
 
 Reglas:
 - Responde en el idioma del usuario; por defecto, español.
-- Sé breve y directo. Usa Markdown ligero (listas y negritas cortas, tablas solo cuando aportan).
-- Nunca inventes datos. Si una herramienta devuelve un error o no hay datos, dilo claramente y no lo compenses con datos imaginados. "found: false" es una respuesta definitiva, no un error.
-- Si una herramienta devuelve status "pending" con un job_id, vuelve a llamarla con los mismos argumentos para obtener el resultado (hasta 3 reintentos). Solo si sigue pendiente, dile al usuario que la fuente oficial está lenta y que lo intente de nuevo en un momento.
-- Si una herramienta falla, di solo que la consulta no está disponible por ahora; nunca describas detalles técnicos internos.
+- Sé breve y directo. Markdown ligero.
+- Nunca inventes datos. Si una herramienta falla o no hay datos, dilo. "found: false" es definitivo.
+- Si Croma MCP devuelve status "pending" con job_id, reintenta hasta 3 veces.
+- Si una herramienta falla, di solo que la consulta no está disponible; sin detalles internos.
 - No des asesoría legal; los datos son informativos.
-- Si piden algo fuera del alcance de Croma, dilo y redirige a lo que sí puedes hacer.`;
+- No loguees ni cites la cédula más de lo necesario para confirmar la acción.`;
 }
 
 export async function POST(req: Request) {
@@ -95,23 +106,32 @@ export async function POST(req: Request) {
     return Response.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  // Fresh MCP client per request; if the server is unreachable the agent still
-  // answers product questions, just without live-data tools.
-  let toolbox: Awaited<ReturnType<typeof createCromaToolbox>> | undefined;
+  let croma: Awaited<ReturnType<typeof createCromaToolbox>> | undefined;
+  let verify: Awaited<ReturnType<typeof createVerifyToolbox>> | undefined;
   try {
-    toolbox = await createCromaToolbox();
+    croma = await createCromaToolbox();
   } catch (err) {
     console.error("[croma-chat] mcp connect failed", err);
   }
+  try {
+    verify = await createVerifyToolbox();
+  } catch (err) {
+    console.error("[verify] toolbox failed", err);
+  }
 
-  // Pinned tools scope this message to the selected sources. The selection is
-  // per-request — the client may add, switch, or clear tools between messages.
-  // Unknown names are dropped; an empty result falls back to the full toolbox.
-  const pinned = pinnedNames.filter((name) => Boolean(toolbox?.tools[name]));
+  const merged: ToolSet = { ...croma?.tools, ...verify?.tools };
+  const closeAll = () => {
+    croma?.close();
+    verify?.close();
+  };
+
+  const pinned = pinnedNames.filter((name) => Boolean(merged[name]));
   const tools =
-    toolbox && pinned.length > 0
-      ? Object.fromEntries(pinned.map((name) => [name, toolbox.tools[name]]))
-      : toolbox?.tools;
+    pinned.length > 0
+      ? Object.fromEntries(pinned.map((name) => [name, merged[name]]))
+      : Object.keys(merged).length > 0
+        ? merged
+        : undefined;
   const pinnedNote =
     pinned.length > 0
       ? `\n\nPara esta consulta el usuario fijó ${
@@ -126,18 +146,17 @@ export async function POST(req: Request) {
     instructions: instructions() + pinnedNote,
     messages: await convertToModelMessages(messages),
     tools,
-    stopWhen: stepCountIs(8),
-    onEnd: () => toolbox?.close(),
-    onAbort: () => toolbox?.close(),
+    stopWhen: stepCountIs(12),
+    onEnd: closeAll,
+    onAbort: closeAll,
     onError: ({ error }) => {
       console.error("[croma-chat] stream error", error);
-      toolbox?.close();
+      closeAll();
     },
   });
 
   return result.toUIMessageStreamResponse({
     sendReasoning: true,
-    // Generic client-facing message; the real error stays in the server log.
     onError: () => "agent_error",
   });
 }

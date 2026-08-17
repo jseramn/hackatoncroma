@@ -1,0 +1,13 @@
+# Agent / local tooling (never ship)
+.atl/
+.engram/
+.codegraph/
+
+# Runtime / secrets
+node_modules/
+dist/
+.env
+.env.local
+*.log
+
+vendor/mallanet-verify/package-lock.json

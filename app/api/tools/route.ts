@@ -1,23 +1,17 @@
 import { createMCPClient } from "@ai-sdk/mcp";
+import type { CatalogTool } from "@/lib/catalog";
 import { CROMA_MCP_URL } from "@/lib/croma-tools";
+import { VERIFY_CATALOG } from "@/lib/verify-catalog";
 
-// Catalog of the MCP server's tools for the composer's tool picker.
-// Cached in-memory: the catalog changes rarely and the MCP handshake is the
-// expensive part of this route.
-
-export type CatalogTool = {
-  name: string;
-  title: string;
-  description: string;
-};
+export type { CatalogTool };
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 let cache: { tools: CatalogTool[]; expiresAt: number } | undefined;
 
-async function fetchCatalog(): Promise<CatalogTool[]> {
+async function fetchCromaCatalog(): Promise<CatalogTool[]> {
   const apiKey = process.env.CROMA_API_KEY;
-  if (!apiKey) throw new Error("CROMA_API_KEY is not set");
+  if (!apiKey) return [];
 
   const client = await createMCPClient({
     transport: {
@@ -30,16 +24,22 @@ async function fetchCatalog(): Promise<CatalogTool[]> {
 
   try {
     const { tools } = await client.listTools();
-    return tools
-      .map((tool) => ({
-        name: tool.name,
-        title: tool.title ?? tool.name,
-        description: tool.description ?? "",
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return tools.map((tool) => ({
+      name: tool.name,
+      title: tool.title ?? tool.name,
+      description: tool.description ?? "",
+    }));
   } finally {
     void client.close().catch(() => undefined);
   }
+}
+
+function mergeCatalog(croma: CatalogTool[]): CatalogTool[] {
+  const names = new Set(VERIFY_CATALOG.map((tool) => tool.name));
+  return [
+    ...VERIFY_CATALOG,
+    ...croma.filter((tool) => !names.has(tool.name)),
+  ].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function GET() {
@@ -47,13 +47,13 @@ export async function GET() {
     return Response.json({ tools: cache.tools });
   }
   try {
-    const tools = await fetchCatalog();
+    const croma = await fetchCromaCatalog();
+    const tools = mergeCatalog(croma);
     cache = { tools, expiresAt: Date.now() + CACHE_TTL_MS };
     return Response.json({ tools });
   } catch (err) {
     console.error("[croma-chat] tool catalog failed", err);
-    // Serve a stale catalog over an error if we have one.
     if (cache) return Response.json({ tools: cache.tools });
-    return Response.json({ tools: [] }, { status: 503 });
+    return Response.json({ tools: VERIFY_CATALOG });
   }
 }

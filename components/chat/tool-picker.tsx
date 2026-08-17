@@ -32,6 +32,7 @@ export type CatalogTool = {
 };
 
 const COUNTRY_FLAGS: Record<Country, string> = {
+  Mallanet: "◆",
   Colombia: "🇨🇴",
   Perú: "🇵🇪",
   México: "🇲🇽",
@@ -139,13 +140,15 @@ export function ToolPicker({
               {option === "Todas"
                 ? "Todas"
                 : `${COUNTRY_FLAGS[option]} ${
-                    option === "Colombia"
-                      ? "CO"
-                      : option === "Perú"
-                        ? "PE"
-                        : option === "México"
-                          ? "MX"
-                          : "Global"
+                    option === "Mallanet"
+                      ? "ML"
+                      : option === "Colombia"
+                        ? "CO"
+                        : option === "Perú"
+                          ? "PE"
+                          : option === "México"
+                            ? "MX"
+                            : "Global"
                   }`}
             </button>
           ))}
