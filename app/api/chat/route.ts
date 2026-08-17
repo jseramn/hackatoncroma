@@ -50,7 +50,8 @@ Reglas:
 - Si Croma MCP devuelve status "pending" con job_id, reintenta hasta 3 veces.
 - Si una herramienta falla, di solo que la consulta no está disponible; sin detalles internos.
 - No des asesoría legal; los datos son informativos.
-- No loguees ni cites la cédula más de lo necesario para confirmar la acción.`;
+- No loguees ni cites la cédula más de lo necesario para confirmar la acción.
+- No muestres IDs internos (volunteer_id, schema) ni nombres de tools al usuario. Habla de voluntarios, cédula y Pass/Alert/Fail.`;
 }
 
 export async function POST(req: Request) {

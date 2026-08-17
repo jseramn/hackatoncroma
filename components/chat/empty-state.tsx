@@ -52,9 +52,8 @@ export function EmptyState({ onSuggestion }: EmptyStateProps) {
           contra datos oficiales.
         </h1>
         <p className="mx-auto max-w-md text-balance text-sm leading-relaxed text-muted-foreground">
-          Demo del MCP Mallanet Verify: schema Neon <code>verify</code> +
-          Croma. Usa de muestra la CC 1127938850 sobre el operador{" "}
-          <code>verify-operator-001</code>.
+          Usa de muestra la CC 1127938850. El chat orquesta Mallanet Verify
+          (Neon) y Croma: reporte Pass/Alert/Fail y fuentes oficiales.
         </p>
       </div>
       <div className="flex max-w-xl flex-wrap items-center justify-center gap-2">

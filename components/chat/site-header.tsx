@@ -31,7 +31,7 @@ export function SiteHeader() {
           <a
             aria-label="GitHub repository"
             className="flex items-center border-l border-line px-3.5 text-muted-foreground transition-colors hover:bg-secondary/40 hover:text-foreground"
-            href="https://github.com/croma-ai/croma-chat-template"
+            href="https://github.com/jseramn/hackatoncroma"
             rel="noopener noreferrer"
             target="_blank"
           >

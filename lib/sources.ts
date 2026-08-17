@@ -20,32 +20,32 @@ type SourceMeta = {
 
 const VERIFY_SOURCES: Record<string, SourceMeta> = {
   list_pending_volunteers: {
-    label: "Neon verify",
+    label: "Voluntarios",
     country: "Mallanet",
     category: "Voluntarios",
   },
   get_volunteer: {
-    label: "Neon verify",
+    label: "Voluntarios",
     country: "Mallanet",
     category: "Voluntarios",
   },
   request_verification_data: {
-    label: "Neon verify",
+    label: "Voluntarios",
     country: "Mallanet",
     category: "Voluntarios",
   },
   verify_volunteer: {
     label: "Verify",
     country: "Mallanet",
-    category: "Orquestador",
+    category: "Verify",
   },
   generate_report: {
     label: "Verify",
     country: "Mallanet",
-    category: "Orquestador",
+    category: "Verify",
   },
   check_croma_background: {
-    label: "Croma (verify)",
+    label: "Croma",
     country: "Mallanet",
     category: "Fuentes",
   },
@@ -140,8 +140,8 @@ export function categoryOf(toolName: string): string {
 }
 
 export const SUGGESTIONS = [
-  "Lista los voluntarios pendientes en Neon (schema verify)",
-  "Vincula la CC de muestra 1127938850 al operador verify-operator-001",
-  "Verifica verify-operator-001 y dame el reporte Pass/Alert/Fail",
   "Consulta la cédula 1127938850 en fuentes de Colombia",
+  "Verifica la CC 1127938850 y dame Pass, Alert o Fail",
+  "Lista voluntarios pendientes de verificación",
+  "Busca a Ecopetrol en el registro mercantil (RUES)",
 ];

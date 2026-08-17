@@ -151,7 +151,7 @@ export function Chat() {
                 <PromptInputTextarea
                   autoFocus
                   onChange={(e) => setInput(e.currentTarget.value)}
-                  placeholder="Verifica un voluntario o consulta una fuente Croma…"
+                  placeholder="Pregunta por procesos, RUC, DOF, jurisprudencia…"
                   value={input}
                 />
               </PromptInputBody>
@@ -189,7 +189,7 @@ export function Chat() {
           <div className="flex items-center justify-between gap-4 border-t border-line px-4 py-2">
             <span className="eyebrow-sm flex items-center gap-2">
               <LiveDot />
-              Mallanet Verify + Croma MCP
+              MCP en vivo
             </span>
             <span className="eyebrow-sm text-right">
               Datos informativos · no es asesoría legal
