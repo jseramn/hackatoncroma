@@ -25,7 +25,7 @@ Streaming chat built with the [Vercel AI SDK](https://ai-sdk.dev) and [AI Elemen
 - **Streaming everything**: text, reasoning, and tool calls stream token-by-token via AI SDK v7's UI message stream.
 - **World-class chat UI**: [AI Elements](https://ai-sdk.dev/elements) components on a swiss, ruled-sheet design system: hairline grid rails, mono eyebrow labels, square surfaces, inverted selection, conversation with stick-to-bottom scrolling, markdown responses (Streamdown), collapsible tool cards with friendly source labels, reasoning disclosure, stop/regenerate, dark mode.
 - **Optional tool pinning**: a docs-style picker in the composer (country → category → source, searchable) pins one or more MCP tools. The selection applies per message: add, switch, or clear sources mid-conversation and the next question uses the new scope. The catalog is fetched live from the server and cached.
-- **Claude-first model resolution**: runs on `claude-opus-5` when `ANTHROPIC_API_KEY` is set, and falls back to Groq's `openai/gpt-oss-120b` otherwise. Swap models in one file.
+- **GLM-first model resolution**: uses Z.AI [GLM Coding Plan](https://docs.z.ai/devpack/quick-start) (`glm-4.5` via `https://api.z.ai/api/coding/paas/v4`) when `GLM_API_KEY` or `ZAI_API_KEY` is set, then Claude (`claude-opus-5`), then Groq (`openai/gpt-oss-120b`). Swap models in one file.
 - **Optional rate limiting**: add two Upstash env vars and `/api/chat` is limited to 10 requests per minute per IP. Without them, the limiter is a no-op.
 - **Honest data handling**: results are truncated before they blow up context, tool failures return a generic message (details stay in server logs), and Croma's async "pending job" lookups are automatically re-polled.
 
@@ -33,10 +33,10 @@ Streaming chat built with the [Vercel AI SDK](https://ai-sdk.dev) and [AI Elemen
 
 1. Click **Deploy with Vercel** above.
 2. Grab a free API key with the **Get your Croma API key** button (sign-up takes a minute).
-3. Paste your `CROMA_API_KEY` and `GROQ_API_KEY` (from [console.groq.com](https://console.groq.com/keys)) when Vercel asks for env vars.
+3. Paste your `CROMA_API_KEY` and a model key when Vercel asks for env vars: prefer `GLM_API_KEY` (Z.AI GLM Coding Plan), or `GROQ_API_KEY` (from [console.groq.com](https://console.groq.com/keys)).
 4. Done. Your chat is live.
 
-Prefer Claude? Add `ANTHROPIC_API_KEY` in your Vercel project settings and the template switches to `claude-opus-5` automatically on the next deploy.
+Prefer Claude? Add `ANTHROPIC_API_KEY` in your Vercel project settings (takes priority over Groq; GLM still wins if set).
 
 ## Running locally
 
@@ -46,7 +46,7 @@ cd croma-chat-template
 bun install          # or: pnpm install / npm install
 
 cp .env.example .env.local
-# fill in CROMA_API_KEY and GROQ_API_KEY (or ANTHROPIC_API_KEY)
+# fill in CROMA_API_KEY and GLM_API_KEY (or ANTHROPIC_API_KEY / GROQ_API_KEY)
 
 bun dev              # or: pnpm dev / npm run dev
 ```
@@ -58,13 +58,17 @@ Open [http://localhost:3000](http://localhost:3000) and try one of the suggestio
 | Variable                   | Required | Description                                                                                |
 | -------------------------- | -------- | ------------------------------------------------------------------------------------------ |
 | `CROMA_API_KEY`            | ✅       | Authenticates the MCP tools. [Get one free →](https://platform.usecroma.com/sign-up)       |
+| `GLM_API_KEY`              | ✅\*     | Z.AI [GLM Coding Plan](https://docs.z.ai/devpack/quick-start). Uses coding endpoint `https://api.z.ai/api/coding/paas/v4` (not general `/api/paas/v4`). Default model `glm-4.5`. |
+| `ZAI_API_KEY`              | ✅\*     | Alias for `GLM_API_KEY`.                                                                   |
+| `GLM_BASE_URL`             | optional | Override GLM OpenAI-compatible base URL (default: coding paas v4 above).                   |
+| `GLM_MODEL`                | optional | Override GLM model id (default: `glm-4.5`).                                                |
 | `GROQ_API_KEY`             | ✅\*     | Runs `openai/gpt-oss-120b` on [Groq](https://console.groq.com/keys).                       |
-| `ANTHROPIC_API_KEY`        | ✅\*     | Runs `claude-opus-5`. Takes precedence over Groq when both are set.                        |
+| `ANTHROPIC_API_KEY`        | ✅\*     | Runs `claude-opus-5`. Used when no GLM key is set; takes precedence over Groq.             |
 | `CROMA_MCP_URL`            | optional | MCP endpoint override. Defaults to `https://api.croma.run/mcp`.                            |
 | `UPSTASH_REDIS_REST_URL`   | optional | Enables rate limiting on `/api/chat`. [Upstash Console →](https://console.upstash.com/)    |
 | `UPSTASH_REDIS_REST_TOKEN` | optional | Pairs with the URL above.                                                                  |
 
-\* One model key is required: Anthropic **or** Groq.
+\* One model key is required: GLM Coding Plan, Anthropic, or Groq (priority in that order).
 
 ## How it works
 
@@ -74,7 +78,7 @@ app/api/tools/route.ts       Tool catalog for the picker (MCP listTools, cached 
 components/chat/chat.tsx     Chat orchestrator (useChat, composer, transcript)
 components/chat/…            Header, empty state, message parts, tool picker
 lib/croma-tools.ts           MCP client: discovery, auth, result truncation, error shielding
-lib/model.ts                 Model resolution (Claude first, Groq fallback)
+lib/model.ts                 Model resolution (GLM Coding Plan → Claude → Groq)
 lib/ratelimit.ts             Optional Upstash rate limiter (active when env vars are set)
 lib/sources.ts               Source taxonomy (country → category → source, mirrors the docs)
 ```
